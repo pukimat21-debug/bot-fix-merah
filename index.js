@@ -2,8 +2,8 @@ const { Telegraf } = require('telegraf');
 const yts = require('yt-search');
 const axios = require('axios');
 
-// Token Bot
-const BOT_TOKEN = '8981165951:AAGVBrwNMYAgtJkc9FfBnOvrBL6FvkWvKe0';
+// Token Bot Baru Lu
+const BOT_TOKEN = '8981165951:AAGMOw880IiiznvlhjRxkoo0mnB7a7-41fg';
 const bot = new Telegraf(BOT_TOKEN);
 
 // Command /start
@@ -53,29 +53,50 @@ bot.command('play', async (ctx) => {
       { parse_mode: 'Markdown' }
     );
 
-    // 2. Gunakan API YTmp3 Global Public Endpoint
-    const apiUrl = `https://api.agatz.xyz/api/ytmp3?url=${encodeURIComponent(song.url)}`;
-    const res = await axios.get(apiUrl);
+    // 2. System Downloader 3 Lapis Lintas API
+    let downloadUrl = null;
 
-    let audioUrl = null;
+    // Lapis 1
+    try {
+      const res1 = await axios.get(`https://api.vreden.web.id/api/ytmp3?url=${encodeURIComponent(song.url)}`);
+      if (res1.data?.result?.download?.url) {
+        downloadUrl = res1.data.result.download.url;
+      }
+    } catch (err) {
+      console.log('Lapis 1 Gagal, oper ke Lapis 2...');
+    }
 
-    if (res.data && res.data.status === 200 && res.data.data && res.data.data.download) {
-      audioUrl = res.data.data.download;
-    } else {
-      // Backup Endpoint 2
-      const res2 = await axios.get(`https://api.neoxr.eu/api/youtube?url=${encodeURIComponent(song.url)}&type=audio&apikey=neoxr`);
-      if (res2.data && res2.data.data && res2.data.data.url) {
-        audioUrl = res2.data.data.url;
+    // Lapis 2 (Jika Lapis 1 Gagal)
+    if (!downloadUrl) {
+      try {
+        const res2 = await axios.get(`https://api.lolhuman.xyz/api/ytaudio2?apikey=8507613bc61ae6f8e26a4f3f&url=${encodeURIComponent(song.url)}`);
+        if (res2.data?.result?.link) {
+          downloadUrl = res2.data.result.link;
+        }
+      } catch (err) {
+        console.log('Lapis 2 Gagal, oper ke Lapis 3...');
       }
     }
 
-    // 3. Kirim Audio
-    if (audioUrl) {
+    // Lapis 3 (Jika Lapis 2 Gagal)
+    if (!downloadUrl) {
+      try {
+        const res3 = await axios.get(`https://btch.zone/ytmp3?url=${encodeURIComponent(song.url)}`);
+        if (res3.data?.url) {
+          downloadUrl = res3.data.url;
+        }
+      } catch (err) {
+        console.log('Lapis 3 Gagal.');
+      }
+    }
+
+    // 3. Kirim Audio ke Chat
+    if (downloadUrl) {
       await ctx.replyWithAudio(
-        { url: audioUrl },
+        { url: downloadUrl },
         {
           title: song.title,
-          performer: song.author.name || 'SpiderMat Music',
+          performer: song.author?.name || 'SpiderMat Music',
           duration: song.seconds,
           caption: `🎶 **${song.title}**\n🕷️ *Bot Musik SpiderMat*`,
           parse_mode: 'Markdown'
@@ -84,24 +105,24 @@ bot.command('play', async (ctx) => {
 
       ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id).catch(() => {});
     } else {
-      throw new Error('Semua endpoint gagal');
+      throw new Error('Semua server unduh sedang tidak merespon');
     }
 
   } catch (error) {
-    console.error('Error /play:', error.message);
+    console.error('Error handling /play:', error.message);
     ctx.telegram.editMessageText(
       ctx.chat.id,
       waitingMsg.message_id,
       null,
-      '❌ Terjadi kesalahan server downloader. Coba lagi dalam beberapa detik!'
+      '❌ Server unduh sedang penyesuaian. Coba klik/kirim ulang lagi!'
     );
   }
 });
 
-// Launch Bot
+// Launch Bot + Bersihin Sisa Polling Lawas
 bot.launch({
   dropPendingUpdates: true
-}).then(() => console.log('Bot Musik SpiderMat 🕷️ ONLINE!'));
+}).then(() => console.log('Bot Musik SpiderMat 🕷️ ONLINE & SIAP DIPAKAI!'));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
