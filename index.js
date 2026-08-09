@@ -23,7 +23,7 @@ Halo **${name}**! Cari dan dengerin musik favorit lu secara praktis langsung di 
   return ctx.replyWithMarkdown(welcomeText);
 });
 
-// Fitur Mainkan / Download Musik MP3 Anti-Mabok
+// Fitur Download MP3 dengan Backup API
 bot.command('play', async (ctx) => {
   const query = ctx.message.text.split(' ').slice(1).join(' ');
 
@@ -44,7 +44,7 @@ bot.command('play', async (ctx) => {
 
     const song = videos[0];
 
-    // Update status pesan
+    // Update status
     await ctx.telegram.editMessageText(
       ctx.chat.id,
       waitingMsg.message_id,
@@ -53,14 +53,39 @@ bot.command('play', async (ctx) => {
       { parse_mode: 'Markdown' }
     );
 
-    // 2. Ambil link MP3 dari API Downloader Pihak Ke-3 (Fast API)
-    const apiUrl = `https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(song.url)}`;
-    const res = await axios.get(apiUrl);
+    // 2. Gunakan Endpoint Downloader Backup
+    let downloadUrl = null;
 
-    if (res.data && res.data.result && res.data.result.download && res.data.result.download.url) {
-      const downloadUrl = res.data.result.download.url;
+    try {
+      // Opsi 1: API Direct Audio
+      const api1 = await axios.get(`https://api.tinomedia.my.id/api/ytmp3?url=${encodeURIComponent(song.url)}`);
+      if (api1.data && api1.data.result && api1.data.result.download) {
+        downloadUrl = api1.data.result.download;
+      }
+    } catch (e) {
+      console.log('API 1 Fail, mencoba API 2...');
+    }
 
-      // 3. Kirim file Audio ke Telegram via Link Direct
+    // Jika Opsi 1 gagal, coba Opsi 2 (Cobalt Instance)
+    if (!downloadUrl) {
+      const api2 = await axios.post('https://co.wuk.sh/api/json', {
+        url: song.url,
+        isAudioOnly: true,
+        aFormat: 'mp3'
+      }, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (api2.data && api2.data.url) {
+        downloadUrl = api2.data.url;
+      }
+    }
+
+    // 3. Kirim Audio
+    if (downloadUrl) {
       await ctx.replyWithAudio(
         { url: downloadUrl },
         {
@@ -72,10 +97,9 @@ bot.command('play', async (ctx) => {
         }
       );
 
-      // Hapus pesan "Mengunduh"
       ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id).catch(() => {});
     } else {
-      throw new Error('API Download Gagal');
+      throw new Error('Semua Server Downloader Gagal');
     }
 
   } catch (error) {
@@ -84,12 +108,13 @@ bot.command('play', async (ctx) => {
       ctx.chat.id,
       waitingMsg.message_id,
       null,
-      '❌ Gagal mengunduh audio. Coba judul lagu yang lain ya bro!'
+      '❌ Server downloader sedang sibuk. Coba ganti kata kunci lagu lain bro!'
     );
   }
 });
 
-bot.launch().then(() => console.log('Bot Musik SpiderMat 🕷️ Siap Meluncur!'));
+bot.launch().then(() => console.log('Bot Musik SpiderMat 🕷️ Online & Siap!'));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
+    
