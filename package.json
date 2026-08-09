@@ -1,7 +1,7 @@
 {
   "name": "bot-musik-spidermat",
   "version": "1.0.0",
-  "description": "Bot Musik SpiderMat Telegram",
+  "description": "Bot Musik SpiderMat",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
