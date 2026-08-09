@@ -23,7 +23,7 @@ Halo **${name}**! Cari dan dengerin musik favorit lu secara praktis langsung di 
   return ctx.replyWithMarkdown(welcomeText);
 });
 
-// Fitur Mainkan / Download MP3 Anti-Mogok
+// Fitur Mainkan / Download MP3
 bot.command('play', async (ctx) => {
   const query = ctx.message.text.split(' ').slice(1).join(' ');
 
@@ -53,28 +53,23 @@ bot.command('play', async (ctx) => {
       { parse_mode: 'Markdown' }
     );
 
-    // 2. Ambil Link Audio via API Reliable (Populer & Cepat)
+    // 2. Gunakan API YTmp3 Global Public Endpoint
+    const apiUrl = `https://api.agatz.xyz/api/ytmp3?url=${encodeURIComponent(song.url)}`;
+    const res = await axios.get(apiUrl);
+
     let audioUrl = null;
 
-    try {
-      // Primary API Endpoint
-      const res1 = await axios.get(`https://api.dreaded.site/api/ytdl/audio?url=${encodeURIComponent(song.url)}`);
-      if (res1.data && res1.data.result && res1.data.result.downloadUrl) {
-        audioUrl = res1.data.result.downloadUrl;
-      }
-    } catch (err) {
-      console.log('API 1 Fail, mencoba API Secondary...');
-    }
-
-    if (!audioUrl) {
-      // Secondary API Endpoint
-      const res2 = await axios.get(`https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(song.url)}`);
-      if (res2.data && res2.data.data && res2.data.data.dl) {
-        audioUrl = res2.data.data.dl;
+    if (res.data && res.data.status === 200 && res.data.data && res.data.data.download) {
+      audioUrl = res.data.data.download;
+    } else {
+      // Backup Endpoint 2
+      const res2 = await axios.get(`https://api.neoxr.eu/api/youtube?url=${encodeURIComponent(song.url)}&type=audio&apikey=neoxr`);
+      if (res2.data && res2.data.data && res2.data.data.url) {
+        audioUrl = res2.data.data.url;
       }
     }
 
-    // 3. Send Audio
+    // 3. Kirim Audio
     if (audioUrl) {
       await ctx.replyWithAudio(
         { url: audioUrl },
@@ -89,24 +84,24 @@ bot.command('play', async (ctx) => {
 
       ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id).catch(() => {});
     } else {
-      throw new Error('API Downloader belum merespon');
+      throw new Error('Semua endpoint gagal');
     }
 
   } catch (error) {
-    console.error('Error handling /play:', error.message);
+    console.error('Error /play:', error.message);
     ctx.telegram.editMessageText(
       ctx.chat.id,
       waitingMsg.message_id,
       null,
-      '❌ Server unduh sedang penyesuaian. Coba klik lagi sebentar!'
+      '❌ Terjadi kesalahan server downloader. Coba lagi dalam beberapa detik!'
     );
   }
 });
 
-// Handling Polling Error (Biar Bot Nggak Crash Pas Conflict)
+// Launch Bot
 bot.launch({
   dropPendingUpdates: true
-}).then(() => console.log('Bot Musik SpiderMat 🕷️ Berhasil Aktif Bebas Conflict!'));
+}).then(() => console.log('Bot Musik SpiderMat 🕷️ ONLINE!'));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
