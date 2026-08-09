@@ -1,12 +1,14 @@
 {
-  "name": "bot-fix-merah",
+  "name": "bot-musik-spidermat",
   "version": "1.0.0",
-  "description": "Bot Telegram Fix Merah WhatsApp",
+  "description": "Bot Musik & Playlist Telegram",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "telegraf": "^4.16.3"
+    "telegraf": "^4.16.3",
+    "yt-search": "^2.11.1",
+    "axios": "^1.6.8"
   }
 }
