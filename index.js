@@ -1,6 +1,6 @@
 const { Telegraf } = require('telegraf');
 const yts = require('yt-search');
-const ytdl = require('@distube/ytdl-core');
+const axios = require('axios');
 
 // Token Bot
 const BOT_TOKEN = '8981165951:AAGVBrwNMYAgtJkc9FfBnOvrBL6FvkWvKe0';
@@ -23,7 +23,7 @@ Halo **${name}**! Cari dan dengerin musik favorit lu secara praktis langsung di 
   return ctx.replyWithMarkdown(welcomeText);
 });
 
-// Fitur Mainkan / Download Musik MP3
+// Fitur Mainkan / Download Musik MP3 Anti-Mabok
 bot.command('play', async (ctx) => {
   const query = ctx.message.text.split(' ').slice(1).join(' ');
 
@@ -49,39 +49,42 @@ bot.command('play', async (ctx) => {
       ctx.chat.id,
       waitingMsg.message_id,
       null,
-      `⏳ *Mengunduh & memproses audio:* **${song.title}**\n\n_Mohon tunggu sebentar..._`,
+      `⏳ *Mengunduh audio:* **${song.title}**\n\n_Mohon tunggu sebentar..._`,
       { parse_mode: 'Markdown' }
     );
 
-    // 2. Stream audio menggunakan ytdl
-    const audioStream = ytdl(song.url, {
-      filter: 'audioonly',
-      quality: 'highestaudio',
-      highWaterMark: 1 << 25
-    });
+    // 2. Ambil link MP3 dari API Downloader Pihak Ke-3 (Fast API)
+    const apiUrl = `https://api.vreden.my.id/api/ytmp3?url=${encodeURIComponent(song.url)}`;
+    const res = await axios.get(apiUrl);
 
-    // 3. Kirim file Audio ke Telegram
-    await ctx.replyWithAudio(
-      { source: audioStream },
-      {
-        title: song.title,
-        performer: song.author.name || 'SpiderMat Music',
-        duration: song.seconds,
-        caption: `🎶 **${song.title}**\n⏱️ Durasi: ${song.timestamp}\n🕷️ *Bot Musik SpiderMat*`,
-        parse_mode: 'Markdown'
-      }
-    );
+    if (res.data && res.data.result && res.data.result.download && res.data.result.download.url) {
+      const downloadUrl = res.data.result.download.url;
 
-    // Hapus pesan "Mencari/Mengunduh" setelah audio berhasil terkirim
-    ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id).catch(() => {});
+      // 3. Kirim file Audio ke Telegram via Link Direct
+      await ctx.replyWithAudio(
+        { url: downloadUrl },
+        {
+          title: song.title,
+          performer: song.author.name || 'SpiderMat Music',
+          duration: song.seconds,
+          caption: `🎶 **${song.title}**\n⏱️ Durasi: ${song.timestamp}\n🕷️ *Bot Musik SpiderMat*`,
+          parse_mode: 'Markdown'
+        }
+      );
+
+      // Hapus pesan "Mengunduh"
+      ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id).catch(() => {});
+    } else {
+      throw new Error('API Download Gagal');
+    }
 
   } catch (error) {
-    console.error('Error handling /play:', error);
+    console.error('Error handling /play:', error.message);
     ctx.telegram.editMessageText(
       ctx.chat.id,
       waitingMsg.message_id,
       null,
-      '❌ Gagal memproses lagu. Coba judul lain atau coba beberapa saat lagi!'
+      '❌ Gagal mengunduh audio. Coba judul lagu yang lain ya bro!'
     );
   }
 });
@@ -90,4 +93,3 @@ bot.launch().then(() => console.log('Bot Musik SpiderMat 🕷️ Siap Meluncur!'
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
-  
