@@ -1,160 +1,138 @@
 const { Telegraf, Markup } = require('telegraf');
+const yts = require('yt-search');
+const axios = require('axios');
 
-// Masukkan Token & Info Owner
+// Masukkan Token Bot Kamu dari @BotFather
 const BOT_TOKEN = '8981165951:AAGVBrwNMYAgtJkc9FfBnOvrBL6FvkWvKe0';
-const OWNER_USERNAME = 'mattt215';
-
 const bot = new Telegraf(BOT_TOKEN);
 
-// Database Sederhana dalam Memori
-let totalFixCount = 1176;
-let fixBerhasilCount = 1175;
+// Database playlist sederhana di memori
+const userPlaylists = {};
 
 // Command /start
 bot.start((ctx) => {
-  const name = ctx.from.first_name || 'User';
-  const userId = ctx.from.id;
-  const username = ctx.from.username ? `@${ctx.from.username}` : 'Tidak Ada';
+  const name = ctx.from.first_name || 'Teman';
+  const welcomeText = `
+🎧 **SELAMAT DATANG DI BOT MUSIK** 🎧
 
-  const caption = `
-🤖 **BOT FIX RED SPDRMT**
+Halo **${name}**! Lu bisa cari lagu, dengerin musik, dan buat playlist favorit lu di sini.
 
-👤 **PROFIL USER**
-├ 📛 **Nama** : ${name}
-├ 🆔 **User ID** : \`${userId}\`
-└ 👤 **Username** : ${username}
-
-📊 **STATISTIK USER**
-├ 🛠️ **Total Fix** : ${totalFixCount}
-└ ✅ **Fix Berhasil** : ${fixBerhasilCount}
-
-ℹ️ **INFORMASI TIER**
-├ 📦 **Paket** : Free
-├ ⚡ **Batch Proses** : 1 nomor
-├ ♾️ **Limit Harian** : Unlimited
-└ 📅 **Berlaku** : -
-
-🌐 **STATISTIK GLOBAL**
-├ 📩 **Total Sender** : 1
-├ 👥 **Total User** : 4,080
-└ 🛠️ **Total Fix** : 796,899
+📜 **Daftar Perintah:**
+🎵 \`/play (judul lagu)\` - Cari & putar lagu
+🎧 \`/playlist\` - Lihat playlist tersimpan lu
+📝 \`/add (judul lagu)\` - Tambah lagu ke playlist
+🗑️ \`/clear\` - Hapus semua lagu di playlist
   `;
 
-  return ctx.replyWithMarkdown(
-    caption,
-    Markup.inlineKeyboard([
-      [
-        Markup.button.callback('🔴 Fix Merah', 'menu_fix'),
-        Markup.button.callback('💎 VIP', 'menu_vip')
-      ],
-      [
-        Markup.button.url('👑 Owner', `https://t.me/${OWNER_USERNAME}`),
-        Markup.button.callback('👥 Undang Teman', 'menu_referral')
-      ]
-    ])
-  );
+  return ctx.replyWithMarkdown(welcomeText);
 });
 
-// Menu Cara Pakai
-bot.action('menu_fix', (ctx) => {
-  const text = `
-📖 **CARA PAKAI BOT FIX**
+// Fitur Cari & Play Lagu
+bot.command('play', async (ctx) => {
+  const query = ctx.message.text.split(' ').slice(1).join(' ');
+  
+  if (!query) {
+    return ctx.reply('⚠️ Contoh penggunaan: `/play Sheila on 7 - Dan`', { parse_mode: 'Markdown' });
+  }
 
-Gunakan perintah:
-\`/fix (nomor)\`
+  const waitingMsg = await ctx.reply(`🔍 *Mencari lagu:* \`${query}\`...`, { parse_mode: 'Markdown' });
 
-**Contoh:**
-\`/fix +628226725xxxx\`
+  try {
+    // Cari lagu di YouTube
+    const r = await yts(query);
+    const videos = r.videos;
 
-*Bebas pakai + atau tidak, tetap bisa.*
-  `;
-
-  return ctx.replyWithMarkdown(
-    text,
-    Markup.inlineKeyboard([
-      [Markup.button.callback('⬅️ Kembali', 'back_to_start')]
-    ])
-  );
-});
-
-// Handling Command /fix dengan animasi status real-time ala Lexxa
-bot.hears(/^\/fix\s+(.+)/, async (ctx) => {
-  const inputNumbers = ctx.match[1].trim().split(/[\s,\n]+/);
-  const totalNumbers = inputNumbers.length;
-
-  // 1. Kirim pesan status awal "Memproses Fix"
-  const processMsg = await ctx.replyWithMarkdown(`
-🔄 **Memproses Fix**
-
-Nomor pending: \`${totalNumbers}\`
-Nomor terkirim: \`0\`
-
-**Nomor sukses dapat balasan: 0**
-└ \`-\`
-
-**Nomor gagal / tidak dapat balasan: 0**
-└ \`-\`
-
-⏱️ **Sisa Waktu:** \`-\`
-  `);
-
-  // Simulasi delay pemrosesan (2-3 detik)
-  setTimeout(async () => {
-    totalFixCount += totalNumbers;
-    
-    // Pilih nomor secara acak untuk disimulasikan (atau anggap gagal/sukses sesuai kebutuhan)
-    const successList = [];
-    const failList = inputNumbers; // Default simulasi persis seperti di video kamu
-
-    let failText = failList.map(n => `\`${n.replace('+', '')}\``).join(', ');
-
-    // 2. Edit pesan jadi "Sukses Fix" ala Lexxa
-    try {
-      await ctx.telegram.editMessageText(
-        ctx.chat.id,
-        processMsg.message_id,
-        null,
-        `
-✅ **Sukses Fix**
-
-Nomor pending: \`1\`
-Nomor terkirim: \`0\`
-
-**Nomor sukses dapat balasan: 0**
-└ \`-\`
-
-**Nomor gagal / tidak dapat balasan: ${failList.length}**
-└ ${failText}
-
-⏱️ **Sisa Waktu:** \`-\`
-        `,
-        { parse_mode: 'Markdown' }
-      );
-    } catch (err) {
-      console.log('Error edit message:', err);
+    if (!videos || videos.length === 0) {
+      return ctx.telegram.editMessageText(ctx.chat.id, waitingMsg.message_id, null, '❌ Lagu tidak ditemukan, coba judul lain!');
     }
-  }, 2500);
+
+    const firstResult = videos[0];
+    
+    // Tampilan hasil pencarian
+    const caption = `
+🎵 **${firstResult.title}**
+⏱️ **Durasi:** ${firstResult.timestamp}
+👤 **Channel:** ${firstResult.author.name}
+🔗 [Tonton di YouTube](${firstResult.url})
+    `;
+
+    await ctx.telegram.editMessageText(
+      ctx.chat.id, 
+      waitingMsg.message_id, 
+      null, 
+      caption, 
+      { 
+        parse_mode: 'Markdown',
+        disable_web_page_preview: false,
+        ...Markup.inlineKeyboard([
+          [Markup.button.callback('➕ Tambah ke Playlist', `add_pl_${firstResult.title.substring(0, 20)}`)]
+        ])
+      }
+    );
+
+  } catch (error) {
+    console.error(error);
+    ctx.telegram.editMessageText(ctx.chat.id, waitingMsg.message_id, null, '❌ Gagal mencari lagu. Coba lagi nanti!');
+  }
 });
 
-// Back & VIP Handler
-bot.action('back_to_start', (ctx) => {
-  ctx.deleteMessage().catch(() => {});
-  return ctx.telegram.sendMessage(ctx.chat.id, 'Ketik /start untuk membuka menu utama.');
+// Fitur Tambah ke Playlist
+bot.command('add', (ctx) => {
+  const song = ctx.message.text.split(' ').slice(1).join(' ');
+  const userId = ctx.from.id;
+
+  if (!song) {
+    return ctx.reply('⚠️ Masukkan judul lagu! Contoh: `/add Cold Play - Yellow`', { parse_mode: 'Markdown' });
+  }
+
+  if (!userPlaylists[userId]) {
+    userPlaylists[userId] = [];
+  }
+
+  userPlaylists[userId].push(song);
+  return ctx.reply(`✅ Lagu **${song}** berhasil ditambahkan ke playlist lu!`, { parse_mode: 'Markdown' });
 });
 
-bot.action('menu_vip', (ctx) => {
-  return ctx.replyWithMarkdown(
-    '💎 **AKSES VIP FIX MERAH**\n\n' +
-    '📦 **PAKET BASIC**\n├ Limit harian: ♾️ Unlimited\n└ Batch proses: 10 nomor\n\n' +
-    '💎 **PAKET VIP**\n├ Limit harian: ♾️ Unlimited\n└ Batch proses: 20 nomor\n\n' +
-    '💎 **PAKET VIP+**\n├ Limit harian: ♾️ Unlimited\n└ Batch proses: 50 nomor',
-    Markup.inlineKeyboard([
-      [Markup.button.callback('📦 Paket Basic', 'p_basic')],
-      [Markup.button.callback('💎 Paket VIP', 'p_vip')],
-      [Markup.button.callback('💎 Paket VIP+', 'p_vipplus')],
-      [Markup.button.callback('⬅️ Kembali', 'back_to_start')]
-    ])
-  );
+// Handling Tombol Tambah ke Playlist dari Pencarian
+bot.action(/^add_pl_(.+)/, (ctx) => {
+  const songTitle = ctx.match[1];
+  const userId = ctx.from.id;
+
+  if (!userPlaylists[userId]) {
+    userPlaylists[userId] = [];
+  }
+
+  userPlaylists[userId].push(songTitle);
+  return ctx.answerCbQuery(`✅ "${songTitle}" ditambahkan ke playlist!`);
 });
 
-bot.launch().then(() => console.log('Bot Lexxa Clone Aktif!'));
+// Fitur Lihat Playlist
+bot.command('playlist', (ctx) => {
+  const userId = ctx.from.id;
+  const list = userPlaylists[userId];
+
+  if (!list || list.length === 0) {
+    return ctx.reply('📂 Playlist lu masih kosong. Tambahkan lagu dengan `/add (judul lagu)` atau tombol *Tambah ke Playlist*!');
+  }
+
+  let text = '🎧 **PLAYLIST MUSIK LU:**\n\n';
+  list.forEach((item, index) => {
+    text += `${index + 1}. ${item}\n`;
+  });
+
+  text += '\n*Ketik /play (judul) buat muter lagunya!*';
+
+  return ctx.replyWithMarkdown(text, Markup.inlineKeyboard([
+    [Markup.button.callback('🗑️ Kosongkan Playlist', 'clear_pl')]
+  ]));
+});
+
+// Fitur Hapus Playlist
+bot.action('clear_pl', (ctx) => {
+  const userId = ctx.from.id;
+  userPlaylists[userId] = [];
+  ctx.answerCbQuery('🗑️ Playlist berhasil dikosongkan!');
+  return ctx.editMessageText('🗑️ Playlist lu sekarang sudah kosong.');
+});
+
+bot.launch().then(() => console.log('Bot Musik Siap Muter Lagu! 🎶'));
