@@ -1,0 +1,12 @@
+{
+  "name": "bot-fix-merah",
+  "version": "1.0.0",
+  "description": "Bot Telegram Fix Merah WhatsApp",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "telegraf": "^4.16.3"
+  }
+}
