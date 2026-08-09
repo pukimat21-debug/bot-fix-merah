@@ -23,7 +23,7 @@ Halo **${name}**! Cari dan dengerin musik favorit lu secara praktis langsung di 
   return ctx.replyWithMarkdown(welcomeText);
 });
 
-// Fitur Download MP3 dengan Backup API
+// Fitur Mainkan / Download MP3 Anti-Mogok
 bot.command('play', async (ctx) => {
   const query = ctx.message.text.split(' ').slice(1).join(' ');
 
@@ -53,53 +53,43 @@ bot.command('play', async (ctx) => {
       { parse_mode: 'Markdown' }
     );
 
-    // 2. Gunakan Endpoint Downloader Backup
-    let downloadUrl = null;
+    // 2. Ambil Link Audio via API Reliable (Populer & Cepat)
+    let audioUrl = null;
 
     try {
-      // Opsi 1: API Direct Audio
-      const api1 = await axios.get(`https://api.tinomedia.my.id/api/ytmp3?url=${encodeURIComponent(song.url)}`);
-      if (api1.data && api1.data.result && api1.data.result.download) {
-        downloadUrl = api1.data.result.download;
+      // Primary API Endpoint
+      const res1 = await axios.get(`https://api.dreaded.site/api/ytdl/audio?url=${encodeURIComponent(song.url)}`);
+      if (res1.data && res1.data.result && res1.data.result.downloadUrl) {
+        audioUrl = res1.data.result.downloadUrl;
       }
-    } catch (e) {
-      console.log('API 1 Fail, mencoba API 2...');
+    } catch (err) {
+      console.log('API 1 Fail, mencoba API Secondary...');
     }
 
-    // Jika Opsi 1 gagal, coba Opsi 2 (Cobalt Instance)
-    if (!downloadUrl) {
-      const api2 = await axios.post('https://co.wuk.sh/api/json', {
-        url: song.url,
-        isAudioOnly: true,
-        aFormat: 'mp3'
-      }, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (api2.data && api2.data.url) {
-        downloadUrl = api2.data.url;
+    if (!audioUrl) {
+      // Secondary API Endpoint
+      const res2 = await axios.get(`https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(song.url)}`);
+      if (res2.data && res2.data.data && res2.data.data.dl) {
+        audioUrl = res2.data.data.dl;
       }
     }
 
-    // 3. Kirim Audio
-    if (downloadUrl) {
+    // 3. Send Audio
+    if (audioUrl) {
       await ctx.replyWithAudio(
-        { url: downloadUrl },
+        { url: audioUrl },
         {
           title: song.title,
           performer: song.author.name || 'SpiderMat Music',
           duration: song.seconds,
-          caption: `🎶 **${song.title}**\n⏱️ Durasi: ${song.timestamp}\n🕷️ *Bot Musik SpiderMat*`,
+          caption: `🎶 **${song.title}**\n🕷️ *Bot Musik SpiderMat*`,
           parse_mode: 'Markdown'
         }
       );
 
       ctx.telegram.deleteMessage(ctx.chat.id, waitingMsg.message_id).catch(() => {});
     } else {
-      throw new Error('Semua Server Downloader Gagal');
+      throw new Error('API Downloader belum merespon');
     }
 
   } catch (error) {
@@ -108,13 +98,15 @@ bot.command('play', async (ctx) => {
       ctx.chat.id,
       waitingMsg.message_id,
       null,
-      '❌ Server downloader sedang sibuk. Coba ganti kata kunci lagu lain bro!'
+      '❌ Server unduh sedang penyesuaian. Coba klik lagi sebentar!'
     );
   }
 });
 
-bot.launch().then(() => console.log('Bot Musik SpiderMat 🕷️ Online & Siap!'));
+// Handling Polling Error (Biar Bot Nggak Crash Pas Conflict)
+bot.launch({
+  dropPendingUpdates: true
+}).then(() => console.log('Bot Musik SpiderMat 🕷️ Berhasil Aktif Bebas Conflict!'));
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
-    
